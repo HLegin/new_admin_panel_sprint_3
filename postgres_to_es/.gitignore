@@ -1,0 +1,12 @@
+*.py[cdo]
+*.mo
+*.env
+.vscode
+*.session.sql
+temp_files
+*.pytest_cache
+*.log
+admin_static
+nginx_static
+*.json
+!sprint_3/ETL_process_files/migrate_data/load/es_schema.json

@@ -1,0 +1,36 @@
+FROM python:3.11.9-alpine3.20
+
+# Создаём пользователя без root прав
+RUN addgroup etl_process && adduser -G etl_process etl_process -D
+
+RUN mkdir -p /migrate_data/extract && \
+    mkdir /migrate_data/transfrom && \
+    mkdir /migrate_data/load && \
+    mkdir /migrate_data/logs && \
+    mkdir /migrate_data/settings && \
+    mkdir /migrate_data/sqlite_to_postgres && \
+    mkdir /migrate_data/etl_state_file
+
+ENV POSTGRES_USER=${POSTGRES_USER}
+ENV POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+ENV POSTGRES_DB=${POSTGRES_DB}
+ENV POSTGRES_HOST=${POSTGRES_HOST}
+ENV POSTGRES_PORT=${POSTGRES_PORT}
+
+COPY --chown=etl_process:etl_process /migrate_data/requirements.txt /migrate_data
+
+RUN apk update && apk add --no-cache postgresql-dev curl
+
+RUN python3 -m venv migrate_data/venv_etl_process && \
+    source /migrate_data/venv_etl_process/bin/activate && \
+    pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r /migrate_data/requirements.txt && \
+    deactivate
+
+RUN chown -R etl_process:etl_process /migrate_data
+
+USER etl_process
+
+ENTRYPOINT ["sh", "-c", "source /migrate_data/venv_etl_process/bin/activate && \
+                            python /migrate_data/sqlite_to_postgres/main.py --pathsqlite /migrate_data/sqlite_to_postgres/db.sqlite && \
+                            python /migrate_data/main.py"]

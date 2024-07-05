@@ -1,0 +1,53 @@
+services:
+  postgres:
+    container_name: postgres
+    build: 
+      context: .
+      dockerfile: Dockerfile_postgres
+    env_file:
+      - data.env
+    expose:
+      - 5432
+    ports:
+      - '5432:5432'
+ 
+  elasticsearch:
+    image: elasticsearch:8.14.0
+    container_name: elasticsearch
+    ports:
+      - "9200:9200"
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms8g -Xmx8g
+    healthcheck:
+      test: ["CMD", "sh", "-c", 'curl -s http://localhost:9200/_cluster/health | grep -oPq "(\"status\"\s*:\s*\"yellow\")|(\"status\"\s*:\s*\"green\")"']
+      start_period: 10s
+      interval: 5s
+      timeout: 5s
+      retries: 3
+
+  etl_process:
+    container_name: etl_process
+    build:
+      context: .
+      dockerfile: Dockerfile_etl_process
+    env_file:
+      - data.env
+    volumes:
+      - ./migrate_data/main.py:/migrate_data/main.py:ro
+      - ./migrate_data/settings:/migrate_data/settings:ro
+      - ./migrate_data/extract:/migrate_data/extract:ro
+      - ./migrate_data/transform:/migrate_data/transform:ro
+      - ./migrate_data/load:/migrate_data/load:ro
+      - ./migrate_data/logs:/migrate_data/logs
+      - ./migrate_data/sqlite_to_postgres:/migrate_data/sqlite_to_postgres:ro
+      - ./migrate_data/etl_state_file:/migrate_data/etl_state_file
+    depends_on:
+      postgres:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+
+    
+

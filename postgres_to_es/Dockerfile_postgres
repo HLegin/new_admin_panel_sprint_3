@@ -1,0 +1,17 @@
+FROM postgres:alpine3.20
+
+ENV POSTGRES_USER=${POSTGRES_USER}
+ENV POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+ENV POSTGRES_DB=${POSTGRES_DB}
+
+RUN apk update \
+    && apk --no-cache add postgresql-client
+
+# Меняем пользователя на postgres для запуска контейнера
+USER ${POSTGRES_USER}
+
+EXPOSE 5432
+
+HEALTHCHECK --interval=4s --timeout=3s --retries=3 \
+  CMD pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}
+
