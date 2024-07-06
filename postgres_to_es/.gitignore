@@ -9,4 +9,4 @@ temp_files
 admin_static
 nginx_static
 *.json
-!sprint_3/ETL_process_files/migrate_data/load/es_schema.json
+!postgres_to_es/migrate_data/load/es_schema.json
