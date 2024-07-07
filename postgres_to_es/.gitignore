@@ -8,5 +8,3 @@ temp_files
 *.log
 admin_static
 nginx_static
-*.json
-!postgres_to_es/migrate_data/load/es_schema.json
