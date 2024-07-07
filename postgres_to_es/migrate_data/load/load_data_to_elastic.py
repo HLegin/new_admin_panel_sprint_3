@@ -42,144 +42,142 @@ def connect_to_es_and_load_data(data_to_elastic: Tuple[Dict], file_with_states: 
 
 
 def load_data(data_to_elastic: Tuple[Dict], file_with_states: State, es: elasticsearch.Elasticsearch):
+
+    with open(os.path.join(os.path.dirname(__file__), "es_schema.json"), "rb") as file:
+        data_index = orjson.loads(file.read())
+
+    if not (es.indices.exists(index=INDEX_NAME)):
+        es.indices.create(index=INDEX_NAME, body=data_index)
+
     try:
+        person_or_genre_data = tuple(
+            file_with_states.get_state("extract").get("person_or_genre_data", None).values()
+        )[0]
+    except AttributeError:
+        person_or_genre_data = None
 
-        with open(os.path.join(os.path.dirname(__file__), "es_schema.json"), "rb") as file:
-            data_index = orjson.loads(file.read())
+    data_to_insert_persons = []
+    data_to_insert_genres = []
+    bulk_data = []
+    for item in data_to_elastic:
+        
+        if tuple(item.keys())[0] == "person_film_work":
 
-        if not (es.indices.exists(index=INDEX_NAME)):
-            es.indices.create(index=INDEX_NAME, body=data_index)
+            for key, data in item.items():
+                person_id = str(data["person_id"])
+                film_work_id = str(data["film_work_id"])
 
-        try:
-            person_or_genre_data = tuple(
-                file_with_states.get_state("extract").get("person_or_genre_data", None).values()
-            )[0]
-        except AttributeError:
-            person_or_genre_data = None
+                for check_data in person_or_genre_data:
+                    check_id = str(check_data["id"])
 
-        data_to_insert_persons = []
-        data_to_insert_genres = []
-        bulk_data = []
-        for item in data_to_elastic:
-            if tuple(item.keys())[0] == "person_film_work":
+                    if check_id == person_id:
+                        full_name = check_data["full_name"]
 
-                for key, data in item.items():
-                    person_id = str(data["person_id"])
-                    film_work_id = str(data["film_work_id"])
+                        data_to_insert_persons.append((film_work_id, person_id, full_name))
+                        break
+                    
+        elif tuple(item.keys())[0] == "genre_film_work":
+            for key, data in item.items():
+                genre_id = str(data["genre_id"])
+                film_work_id = str(data["film_work_id"])
 
-                    for check_data in person_or_genre_data:
-                        check_id = str(check_data["id"])
+                for check_data in person_or_genre_data:
+                    check_id = str(check_data["id"])
 
-                        if check_id == person_id:
-                            full_name = check_data["full_name"]
+                    if check_id == genre_id:
+                        genre_name = check_data["name"]
 
-                            data_to_insert_persons.append((film_work_id, person_id, full_name))
-                            break
-            elif tuple(item.keys())[0] == "genre_film_work":
-                for key, data in item.items():
-                    genre_id = str(data["genre_id"])
-                    film_work_id = str(data["film_work_id"])
+                        data_to_insert_genres.append((film_work_id, genre_id, genre_name))
+                        break
+        else:
+            bulk_data.append({"index": {"_index": INDEX_NAME, "_id": item["id"]}})
+            bulk_data.append(item)
 
-                    for check_data in person_or_genre_data:
-                        check_id = str(check_data["id"])
+    if len(data_to_insert_persons) != 0:
 
-                        if check_id == genre_id:
-                            genre_name = check_data["name"]
+        response = es.mget(index=INDEX_NAME, body={"ids": [data[0] for data in data_to_insert_persons]})["docs"]
 
-                            data_to_insert_genres.append((film_work_id, genre_id, genre_name))
-                            break
-            else:
-                bulk_data.append({"index": {"_index": INDEX_NAME, "_id": item["id"]}})
-                bulk_data.append(item)
+        for film in response:
+            if film["found"] is True:
+                film_data = film["_source"]
 
-        if len(data_to_insert_persons) != 0:
+                fields = ["actors", "actors_names", "writers", "writers_names", "directors", "directors_names"]
+                data_fields = list(map(lambda field: film_data.get(field, None), fields))
 
-            response = es.mget(index=INDEX_NAME, body={"ids": [data[0] for data in data_to_insert_persons]})["docs"]
+                for new_data in data_to_insert_persons:
+                    person_id = new_data[1]
+                    new_full_name = new_data[2]
 
-            for film in response:
-                if film["found"] is True:
-                    film_data = film["_source"]
+                    for i, old_data in enumerate(data_fields):
 
-                    fields = ["actors", "actors_names", "writers", "writers_names", "directors", "directors_names"]
-                    data_fields = list(map(lambda field: film_data.get(field, None), fields))
+                        if i == 0 or i == 2 or i == 4:
+                            n = False
+                            for c, data_to_change in enumerate(old_data):
+                                id_old = data_to_change["id"]
 
-                    for new_data in data_to_insert_persons:
-                        person_id = new_data[1]
-                        new_full_name = new_data[2]
+                                if person_id == id_old:
+                                    old_full_name = data_to_change["name"]
+                                    data_to_change.update({"name": new_full_name})
+                                    old_data.pop(c)
+                                    old_data.insert(c, data_to_change)
+                                    n = True
 
-                        for i, old_data in enumerate(data_fields):
+                            if n is False:
+                                old_full_name = None
 
-                            if i == 0 or i == 2 or i == 4:
-                                n = False
-                                for c, data_to_change in enumerate(old_data):
-                                    id_old = data_to_change["id"]
+                            data_fields.pop(i)
+                            data_fields.insert(i, old_data)
 
-                                    if person_id == id_old:
-                                        old_full_name = data_to_change["name"]
-                                        data_to_change.update({"name": new_full_name})
-                                        old_data.pop(c)
-                                        old_data.insert(c, data_to_change)
-                                        n = True
+                        elif i == 1 or i == 3 or i == 5:
+                            if old_full_name is not None:
+                                old_full_name_indices = [
+                                    index for index, value in enumerate(old_data) if value == old_full_name
+                                ]
 
-                                if n is False:
-                                    old_full_name = None
+                                for temp_index in old_full_name_indices:
+                                    old_data.pop(temp_index)
+                                    old_data.insert(temp_index, new_full_name)
 
-                                data_fields.pop(i)
-                                data_fields.insert(i, old_data)
+                            data_fields.pop(i)
+                            data_fields.insert(i, old_data)
 
-                            elif i == 1 or i == 3 or i == 5:
-                                if old_full_name is not None:
-                                    old_full_name_indices = [
-                                        index for index, value in enumerate(old_data) if value == old_full_name
-                                    ]
+                new_film_data = dict(zip(fields, data_fields))
 
-                                    for temp_index in old_full_name_indices:
-                                        old_data.pop(temp_index)
-                                        old_data.insert(temp_index, new_full_name)
+                film_data.update(new_film_data)
 
-                                data_fields.pop(i)
-                                data_fields.insert(i, old_data)
+                bulk_data.append({"update": {"_id": film_data["id"], "_index": INDEX_NAME}})
+                bulk_data.append({"doc": film_data})
+    elif len(data_to_insert_genres) != 0:
 
-                    new_film_data = dict(zip(fields, data_fields))
+        response = es.mget(index=INDEX_NAME, body={"ids": [data[0] for data in data_to_insert_genres]})["docs"]
 
-                    film_data.update(new_film_data)
+        for film in response:
+            if film["found"] is True:
+                film_data = film["_source"]
 
-                    bulk_data.append({"update": {"_id": film_data["id"], "_index": INDEX_NAME}})
-                    bulk_data.append({"doc": film_data})
-        elif len(data_to_insert_genres) != 0:
+                fields = ["genres"]
+                data_fields = list(map(lambda field: film_data.get(field, None), fields))
+                data_fields = data_fields[0]
 
-            response = es.mget(index=INDEX_NAME, body={"ids": [data[0] for data in data_to_insert_genres]})["docs"]
+                for new_data in data_to_insert_genres:
+                    new_genre = new_data[2]
 
-            for film in response:
-                if film["found"] is True:
-                    film_data = film["_source"]
+                    if new_genre not in data_fields:
+                        data_fields.append(new_genre)
 
-                    fields = ["genres"]
-                    data_fields = list(map(lambda field: film_data.get(field, None), fields))
-                    data_fields = data_fields[0]
+                film_data.update({"genres": data_fields})
 
-                    for new_data in data_to_insert_genres:
-                        new_genre = new_data[2]
+                bulk_data.append({"update": {"_id": film_data["id"], "_index": INDEX_NAME}})
+                bulk_data.append({"doc": film_data})
 
-                        if new_genre not in data_fields:
-                            data_fields.append(new_genre)
+    if len(bulk_data) != 0:
+        answer = es.bulk(body=bulk_data)
+        if answer.get("errors", None) is not None:
+            if answer.get("errors", None) is True:
+                raise Exception(
+                    f"BULK операция прошла с ошибкой!\nОбратная связь: {(orjson.dumps(dict(answer), option=orjson.OPT_INDENT_2)).decode('utf-8')}"
+                )
+        else:
+            raise Exception(f"Ответ после BULK операции имеет тип None!")
 
-                    film_data.update({"genres": data_fields})
-
-                    bulk_data.append({"update": {"_id": film_data["id"], "_index": INDEX_NAME}})
-                    bulk_data.append({"doc": film_data})
-
-        if len(bulk_data) != 0:
-            answer = es.bulk(body=bulk_data)
-            if answer.get("errors", None) is not None:
-                if answer.get("errors", None) is True:
-                    raise Exception(
-                        f"BULK операция прошла с ошибкой!\nОбратная связь: {(orjson.dumps(dict(answer), option=orjson.OPT_INDENT_2)).decode('utf-8')}"
-                    )
-            else:
-                raise Exception(f"Ответ после BULK операции имеет тип None!")
-
-            es.indices.flush(index=INDEX_NAME)
-
-    except Exception:
-        raise
+        es.indices.flush(index=INDEX_NAME)
