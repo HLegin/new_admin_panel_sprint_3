@@ -8,3 +8,4 @@ temp_files
 *.log
 admin_static
 nginx_static
+*.json
