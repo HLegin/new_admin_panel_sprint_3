@@ -48,8 +48,22 @@
       "imdb_rating": {
         "type": "float"
       },
+      "genres_names": {
+        "type": "text",
+        "analyzer": "ru_en"
+      },
       "genres": {
-        "type": "keyword"
+        "type": "nested",
+        "dynamic": "strict",
+        "properties": {
+          "id": {
+            "type": "keyword"
+          },
+          "name": {
+            "type": "text",
+            "analyzer": "ru_en"
+          }
+        }
       },
       "title": {
         "type": "text",

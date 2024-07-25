@@ -43,7 +43,7 @@ def extract_film_work_data(
 
             data_persons = cursor_postgre.execute(command).fetchall()
 
-            command = f"""SELECT g.name, gfw.film_work_id
+            command = f"""SELECT g.name, g.id ,gfw.film_work_id
                             FROM genre g
                             JOIN genre_film_work gfw ON g.id = gfw.genre_id
                             WHERE gfw.film_work_id IN ({', '.join(f"'{str(uuid)}'" for uuid in ids_films)})"""
@@ -69,7 +69,9 @@ def extract_film_work_data(
                 data_names_genres = tuple(
                     filter(
                         None,
-                        list(map(lambda x: x["name"] if x.get("film_work_id") == ids else None, data_genres)),
+                        list(
+                            map(lambda x: (x["name"], x["id"]) if x.get("film_work_id") == ids else None, data_genres)
+                        ),
                     )
                 )
 

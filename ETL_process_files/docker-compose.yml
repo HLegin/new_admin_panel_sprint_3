@@ -27,6 +27,20 @@ services:
       timeout: 5s
       retries: 3
 
+  redis:
+    image: redis:latest
+    container_name: redis
+    expose:
+      - 6379
+    ports:
+    - "6379:6379"
+    healthcheck:
+      test: ["CMD", "sh", "-c", 'redis-cli ping | grep -oPq "PONG"']
+      start_period: 10s
+      interval: 5s
+      timeout: 5s
+      retries: 3
+  
   etl_process:
     container_name: etl_process
     build:
@@ -42,11 +56,13 @@ services:
       - ./migrate_data/load:/migrate_data/load:ro
       - ./migrate_data/logs:/migrate_data/logs
       - ./migrate_data/sqlite_to_postgres:/migrate_data/sqlite_to_postgres:ro
-      - ./migrate_data/etl_state_file:/migrate_data/etl_state_file
+      - ./migrate_data/etl_state:/migrate_data/etl_state
     depends_on:
       postgres:
         condition: service_healthy
       elasticsearch:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
     

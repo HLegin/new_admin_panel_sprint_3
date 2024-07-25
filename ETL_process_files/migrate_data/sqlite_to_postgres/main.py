@@ -7,7 +7,7 @@ import psycopg
 from data_from_sqlite import data_from_sqlite_table
 
 SCHEMA_NAME = os.environ.get("SCHEMA_NAME")
-TABLE_NAMES = os.environ.get("TABLE_NAMES_SQLITE_TO_POSTGRES").split(",")
+TABLE_NAMES = 'film_work,person,genre,person_film_work,genre_film_work'.split(",")
 
 DB_POSTGRESQL = {
     "dbname": os.environ.get("POSTGRES_DB"),

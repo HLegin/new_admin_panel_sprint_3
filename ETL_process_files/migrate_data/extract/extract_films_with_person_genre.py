@@ -65,5 +65,5 @@ def extract_films_with_person_genre(
 
     person_genre_film_work_all_extract = True
     offset = 0
-    
+
     return offset, person_genre_film_work_all_extract, tuple()

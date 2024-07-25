@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS content.genre_film_work (
     FOREIGN KEY (film_work_id) REFERENCES content.film_work (id) DEFERRABLE INITIALLY DEFERRED,
     created_at TIMESTAMP WITH TIME ZONE
 );
+-- Комментарий CREATE INDEX не трогаем, так как он нужен для корректной миграции данных из sqlite. Обычные индексы необязательно, уникальные обязательно
 
 -- CREATE INDEX
 

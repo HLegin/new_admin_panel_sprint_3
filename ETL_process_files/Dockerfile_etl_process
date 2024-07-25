@@ -9,7 +9,7 @@ RUN mkdir -p /migrate_data/extract && \
     mkdir /migrate_data/logs && \
     mkdir /migrate_data/settings && \
     mkdir /migrate_data/sqlite_to_postgres && \
-    mkdir /migrate_data/etl_state_file
+    mkdir /migrate_data/etl_state
 
 ENV POSTGRES_USER=${POSTGRES_USER}
 ENV POSTGRES_PASSWORD=${POSTGRES_PASSWORD}

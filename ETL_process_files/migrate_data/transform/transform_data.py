@@ -1,13 +1,9 @@
-import logging
 from dataclasses import asdict
-from typing import Tuple
 
-from extract.dataclass_table import FullFilm
-
-
-def transform_data(data_from_postrgre: Tuple[FullFilm], data_person_or_genre: dict) -> tuple:
+def transform_data(data_from_postrgre: tuple, data_person_or_genre: dict) -> tuple:
 
     data_to_elastic = []
+
     if len(data_from_postrgre) != 0:
 
         for film in data_from_postrgre:
@@ -16,6 +12,7 @@ def transform_data(data_from_postrgre: Tuple[FullFilm], data_person_or_genre: di
 
             id_str = str(film.pop("id", None))
             persons = tuple(film.pop("persons", None))
+            genres_data = tuple(film.pop("genres", None))
 
             film.pop("created_at")
             film.pop("updated_at")
@@ -35,9 +32,14 @@ def transform_data(data_from_postrgre: Tuple[FullFilm], data_person_or_genre: di
             writers = [{"id": str(item[2]), "name": item[0]} for item in persons if item[1] == "writer"]
             writers_name = [item[0] for item in persons if item[1] == "writer"]
 
+            genres = [{"id": str(item[1]), "name": item[0]} for item in genres_data]
+            genres_names = [item[0] for item in genres_data]
+
             film.update(
                 {
                     "id": id_str,
+                    "genres": genres,
+                    "genres_names": genres_names,
                     "directors": directors,
                     "directors_names": directors_names,
                     "actors": actors,
@@ -48,6 +50,7 @@ def transform_data(data_from_postrgre: Tuple[FullFilm], data_person_or_genre: di
             )
 
             data_to_elastic.append(film)
+
     elif len(data_person_or_genre) != 0:
 
         for dataclass, data in data_person_or_genre.items():

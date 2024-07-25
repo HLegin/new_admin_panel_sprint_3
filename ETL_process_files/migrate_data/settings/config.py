@@ -4,7 +4,7 @@ from logging.config import dictConfig
 LVL_LOGS = os.environ.get("LVL_LOGS", "WARNING")
 
 SCHEMA_NAME = os.environ.get("SCHEMA_NAME")
-TABLE_NAMES = 'film_work,person,person_film_work,genre,genre_film_work'.split(",")
+TABLE_NAMES = "film_work,person,person_film_work,genre,genre_film_work".split(",")
 
 DB_POSTGRESQL = {
     "dbname": os.environ.get("POSTGRES_DB"),
@@ -15,7 +15,23 @@ DB_POSTGRESQL = {
     "options": "-c search_path={}".format(SCHEMA_NAME),
 }
 
-PATH_ETL_STATE_JSON = os.path.join(os.path.dirname(os.path.dirname(__file__)), "etl_state_file", "etl_state.json")
+PATH_ETL_STATE_JSON = os.path.join(os.path.dirname(os.path.dirname(__file__)), "etl_state", "etl_state.json")
+
+REDIS_HOST = os.environ.get("REDIS_HOST", None)
+REDIS_PORT = os.environ.get("REDIS_PORT", None)
+REDIS_DATABASE = os.environ.get("REDIS_DATABASE", None)
+
+ELASTIC = [
+    {
+        "host": os.environ.get("ELASTIC_HOST", None),
+        "port": int(os.environ.get("ELASTIC_PORT", None)),
+        "scheme": os.environ.get("ELASTIC_SCHEME", None),
+    }
+]
+
+INDEX_NAME_MOVIES = "movies"
+INDEX_NAME_PERSONS = "persons"
+INDEX_NAME_GENRES = "genres"
 
 
 def config_log():
@@ -53,7 +69,7 @@ def config_log():
                     "formatter": "default",
                     "level": LVL_LOGS,
                     "encoding": "UTF-8",
-                    "maxBytes": (2 * 1024 * 1024),
+                    "maxBytes": (20 * 1024 * 1024),
                     "backupCount": 3,
                 },
             },
